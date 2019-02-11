@@ -4,6 +4,14 @@
 -- * Написать по 1му запросу с примерами каждого вида JOIN, и фильтров.
 -- * Выберите 10 последних заказов с именем клиента и именем сотрудника, который оформил заказ.
 
+-- 2019.02.11 - Исправления по результатам проверки преподавателя
+
+-- Комментарии проверяющего (Кучерова Кристина):
+-- Про первый вариант про Cross и про Inner join вопросов нет, а про left, right и full есть вопросы.
+-- Вы делаете выборку из таблицы Заказы, и потом присоединяете 2 таблицы Клиенты и Сотрудники (аналог) тут OUTER join досточно бесполезная штука, так как в современных базах нет практики удаления неактивных клиентов или сотрудников, поэтому все заказы будут иметь соответствие и в клиентах и в сотруднике, который обработал заказ 
+
+
+
 	USE WideWorldImporters
 
 	GO
@@ -30,69 +38,50 @@
 
 	GO
 
--- LEFT OUTER JOIN
+-- LEFT OUTER JOIN - Выберем менеджеров у которых за январь 2013 года не было заказов
 
-	SELECT TOP 10
-		 sc.CustomerName AS [Customer Name]
-		,ap.FullName AS [Salesperson Name]
-		,so.*
+	SELECT
+		 ap.PersonID
+		,ap.FullName
 	FROM
-		Sales.Orders AS so
-		LEFT OUTER JOIN Sales.Customers sc ON so.CustomerID = sc.CustomerID
-		LEFT OUTER JOIN Application.People ap ON so.SalespersonPersonID = ap.PersonID
+		Application.People ap
+		LEFT OUTER JOIN Sales.Orders so ON ap.PersonID = so.SalespersonPersonID
 	WHERE
-		(
-			so.OrderDate = '20160530'
-			OR so.ExpectedDeliveryDate = '20160531'
-		)
-		AND sc.DeliveryMethodID = 3
-		AND ISNULL(sc.CreditLimit, 0) >= 1000
+		ap.IsSalesperson = 1
+		AND so.OrderID IS NULL
+		AND so.OrderDate BETWEEN '20130101' AND '20130131'
 	ORDER BY
-		so.OrderID DESC
+		ap.PersonID
 
 	GO
 
--- RIGHT OUTER JOIN
+-- RIGHT OUTER JOIN - Выберем города в которые не делает поставки ни один поставщик
 
-	SELECT TOP 10
-		 sc.CustomerName AS [Customer Name]
-		,ap.FullName AS [Salesperson Name]
-		,so.*
+	SELECT
+		 ac.CityID
+		,ac.CityName
 	FROM
-		Sales.Orders AS so
-		RIGHT OUTER JOIN Sales.Customers sc ON so.CustomerID = sc.CustomerID
-		RIGHT OUTER JOIN Application.People ap ON so.SalespersonPersonID = ap.PersonID
+		Purchasing.Suppliers ps
+		RIGHT OUTER JOIN Application.Cities ac ON ps.DeliveryCityID = ac.CityID
 	WHERE
-		(
-			so.OrderDate = '20160530'
-			OR so.ExpectedDeliveryDate = '20160531'
-		)
-		AND sc.DeliveryMethodID = 3
-		AND ISNULL(sc.CreditLimit, 0) >= 1000
-	ORDER BY
-		so.OrderID DESC
+		ps.SupplierID IS NULL
 
 	GO
 
--- FULL OUTER JOIN
+-- FULL OUTER JOIN - заказы с ФИО клиента за январь 2013 г.
 
-	SELECT TOP 10
-		 sc.CustomerName AS [Customer Name]
-		,ap.FullName AS [Salesperson Name]
-		,so.*
+	SELECT
+		  sc.CustomerName AS [Customer Name]
+		 ,so.OrderID
 	FROM
 		Sales.Orders AS so
 		FULL OUTER JOIN Sales.Customers sc ON so.CustomerID = sc.CustomerID
-		FULL OUTER JOIN Application.People ap ON so.SalespersonPersonID = ap.PersonID
 	WHERE
 		(
-			so.OrderDate = '20160530'
-			OR so.ExpectedDeliveryDate = '20160531'
+			sc.CustomerID IS NOT NULL
+			OR so.CustomerID IS NOT NULL
 		)
-		AND sc.DeliveryMethodID = 3
-		AND ISNULL(sc.CreditLimit, 0) >= 1000
-	ORDER BY
-		so.OrderID DESC
+		AND so.OrderDate BETWEEN '20130101' AND '20130131'
 
 	GO
 
