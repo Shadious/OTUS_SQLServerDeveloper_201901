@@ -9,6 +9,16 @@
 -- 5. 10 последних по дате продаж с именем клиента и именем сотрудника, который оформил заказ.
 -- 6. Все ид и имена клиентов и их контактные телефоны, которые покупали товар Chocolate frogs 250g
 
+-- 2019.02.11 - Исправления по комментариям проверяющего (Кристина Кучерова)
+-- Комментарии:
+-- Запрос 2. можно и нужно сильно проще по коду, хотя ваш вариант лучше по производительности
+-- вариант через подзапрос можно переписать через EXISTS 
+-- Про 3й отлично с кейсами, для месяца и квартала есть функции - и если поставить нужную локаль то даже можно вывести на русском
+-- и там я предполагала что вы будете использовать UnitPrice и Quantity в OrderLines - это было бы проще, видимо неоднозначно сформулировала, то что у вас получилось тоже ок
+-- Запрос 4 - все ок, один нюанс, если вы по бизнес логике знаете, что информацию о неработающих поставщиках и сотрудников не удаляют. то между LEFT и INNER лучше выбрать inner в  большинстве случаев, так как это соединение будет чуть быстрее (иногда) и логичнее. Вообще при выборе типа соединения нужно исходить именно из бизнес логики
+-- Про 5 й все ок
+-- Про 6й как бы выглядел запрос, если бы он у вас был на проде?
+
 	USE WideWorldImporters
 
 	GO
@@ -29,7 +39,7 @@
 
 -- 2. Поставщиков, у которых не было сделано ни одного заказа (потом покажем как это делать через подзапрос, сейчас сделайте через JOIN)
 
-	-- Через JOIN
+	-- Через JOIN 1
 
 	SELECT 
 		 ps.SupplierID
@@ -41,7 +51,23 @@
 	GROUP BY ps.SupplierID, ps.SupplierName
 	HAVING count(ppo.PurchaseOrderID) = 0
 
-	-- Через подзапрос
+	GO
+
+	-- Через JOIN 2
+
+	SELECT 
+		 ps.SupplierID
+		,ps.SupplierName
+	FROM 
+		Purchasing.Suppliers ps
+		LEFT OUTER JOIN Purchasing.PurchaseOrders ppo ON ps.SupplierID = ppo.SupplierID
+	WHERE
+		ppo.PurchaseOrderID IS NULL
+		
+
+	GO
+
+	-- Через подзапрос 1
 
 	SELECT 
 		 ps.SupplierID
@@ -56,36 +82,52 @@
 
 	GO
 
--- 3. Продажи с названием месяца, в котором была продажа, номером квартала, к которому относится продажа, включите также к какой трети года относится дата - каждая треть по 4 месяца, дата забора заказа должна быть задана, с ценой товара более 100$ либо количество единиц товара более 20. Добавьте вариант этого запроса с постраничной выборкой пропустив первую 1000 и отобразив следующие 100 записей. Соритровка должна быть по номеру квартала, трети года, дате продажи.
+	-- Через подзапрос 2
+
+	SELECT 
+		 ps.SupplierID
+		,ps.SupplierName
+	FROM Purchasing.Suppliers ps
+	WHERE 
+		NOT EXISTS
+		(
+			SELECT SupplierID
+			FROM Purchasing.PurchaseOrders
+			WHERE SupplierID = ps.SupplierID
+		)
+
+	GO
+
+-- 3. Продажи с названием месяца, в котором была продажа, номером квартала, к которому относится продажа, включите также к какой трети года относится дата - каждая треть по 4 месяца, дата забора заказа должна быть задана, с ценой товара более 100$ либо количество единиц товара более 20. Добавьте вариант этого запроса с постраничной выборкой пропустив первую 1000 и отобразив следующие 100 записей. Соритровка должна быть по номеру квартала, трети года, дате продажи. 
 
 	SELECT DISTINCT
 		 so.OrderID
 		,sct.TransactionDate AS [SalesDate]
 		,CASE
 			WHEN MONTH(sct.TransactionDate) = 1
-			THEN 'ßíâàðü'
+			THEN 'Январь'
 			WHEN MONTH(sct.TransactionDate) = 2
-			THEN 'Ôåâðàëü'
+			THEN 'Февраль'
 			WHEN MONTH(sct.TransactionDate) = 3
-			THEN 'Ìàðò'
+			THEN 'Март'
 			WHEN MONTH(sct.TransactionDate) = 4
-			THEN 'Àïðåëü'
+			THEN 'Апрель'
 			WHEN MONTH(sct.TransactionDate) = 5
-			THEN 'Ìàé'
+			THEN 'Май'
 			WHEN MONTH(sct.TransactionDate) = 6
-			THEN 'Èþíü'
+			THEN 'Июнь'
 			WHEN MONTH(sct.TransactionDate) = 7
-			THEN 'Èþëü'
+			THEN 'Июль'
 			WHEN MONTH(sct.TransactionDate) = 8
-			THEN 'Àâãóñò'
+			THEN 'Август'
 			WHEN MONTH(sct.TransactionDate) = 9
-			THEN 'Ñåíòÿáðü'
+			THEN 'Сентябрь'
 			WHEN MONTH(sct.TransactionDate) = 10
-			THEN 'Îêòÿáðü'
+			THEN 'Октябрь'
 			WHEN MONTH(sct.TransactionDate) = 11
-			THEN 'Íîÿáðü'
+			THEN 'Ноябрь'
 			WHEN MONTH(sct.TransactionDate) = 12
-			THEN 'Äåêàáðü'
+			THEN 'Декабрь'
 			END AS [SalesMonth]
 		,CASE
 			WHEN MONTH(sct.TransactionDate) in (1, 2, 3)
@@ -142,29 +184,29 @@
 		,sct.TransactionDate AS [SalesDate]
 		,CASE
 			WHEN MONTH(sct.TransactionDate) = 1
-			THEN 'ßíâàðü'
+			THEN 'Январь'
 			WHEN MONTH(sct.TransactionDate) = 2
-			THEN 'Ôåâðàëü'
+			THEN 'Февраль'
 			WHEN MONTH(sct.TransactionDate) = 3
-			THEN 'Ìàðò'
+			THEN 'Март'
 			WHEN MONTH(sct.TransactionDate) = 4
-			THEN 'Àïðåëü'
+			THEN 'Апрель'
 			WHEN MONTH(sct.TransactionDate) = 5
-			THEN 'Ìàé'
+			THEN 'Май'
 			WHEN MONTH(sct.TransactionDate) = 6
-			THEN 'Èþíü'
+			THEN 'Июнь'
 			WHEN MONTH(sct.TransactionDate) = 7
-			THEN 'Èþëü'
+			THEN 'Июль'
 			WHEN MONTH(sct.TransactionDate) = 8
-			THEN 'Àâãóñò'
+			THEN 'Август'
 			WHEN MONTH(sct.TransactionDate) = 9
-			THEN 'Ñåíòÿáðü'
+			THEN 'Сентябрь'
 			WHEN MONTH(sct.TransactionDate) = 10
-			THEN 'Îêòÿáðü'
+			THEN 'Октябрь'
 			WHEN MONTH(sct.TransactionDate) = 11
-			THEN 'Íîÿáðü'
+			THEN 'Ноябрь'
 			WHEN MONTH(sct.TransactionDate) = 12
-			THEN 'Äåêàáðü'
+			THEN 'Декабрь'
 			END AS [SalesMonth]
 		,CASE
 			WHEN MONTH(sct.TransactionDate) in (1, 2, 3)
@@ -243,7 +285,6 @@
 
 -- 5. 10 последних по дате продаж с именем клиента и именем сотрудника, который оформил заказ.
 
-
 	SELECT TOP 10
 		 so.OrderID
 		,so.OrderDate
@@ -260,16 +301,21 @@
 
 -- 6. Все ид и имена клиентов и их контактные телефоны, которые покупали товар Chocolate frogs 250g
 
+	DECLARE @StockItemName nvarchar(100) = 'Chocolate frogs 250g', @StockItemID int;
+
+	SET @StockItemID = (SELECT StockItemID FROM Warehouse.StockItems WHERE StockItemName = @StockItemName)
+
 	SELECT DISTINCT
 		 sc.CustomerID
 		,sc.CustomerName
 		,sc.PhoneNumber
 	FROM 
-		Sales.Customers sc
-		INNER JOIN Sales.Orders so ON sc.CustomerID = so.CustomerID
-		INNER JOIN Sales.OrderLines sol ON so.OrderID = sol.OrderID
-		INNER JOIN Warehouse.StockItems wsi ON sol.StockItemID = wsi.StockItemID
+		Warehouse.StockItems wsi
+		INNER JOIN Sales.OrderLines sol ON wsi.StockItemID = sol.StockItemID
+		INNER JOIN Sales.Orders so ON sol.OrderID = so.OrderID
+		INNER JOIN Sales.Customers sc ON sc.CustomerID = so.CustomerID
 	WHERE
-		wsi.StockItemName = 'Chocolate frogs 250g'
+		wsi.StockItemID = @StockItemID
 
 	GO
+
