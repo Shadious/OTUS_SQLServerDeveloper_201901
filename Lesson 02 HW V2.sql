@@ -103,42 +103,8 @@
 	SELECT DISTINCT
 		 so.OrderID
 		,sct.TransactionDate AS [SalesDate]
-		,CASE
-			WHEN MONTH(sct.TransactionDate) = 1
-			THEN 'Январь'
-			WHEN MONTH(sct.TransactionDate) = 2
-			THEN 'Февраль'
-			WHEN MONTH(sct.TransactionDate) = 3
-			THEN 'Март'
-			WHEN MONTH(sct.TransactionDate) = 4
-			THEN 'Апрель'
-			WHEN MONTH(sct.TransactionDate) = 5
-			THEN 'Май'
-			WHEN MONTH(sct.TransactionDate) = 6
-			THEN 'Июнь'
-			WHEN MONTH(sct.TransactionDate) = 7
-			THEN 'Июль'
-			WHEN MONTH(sct.TransactionDate) = 8
-			THEN 'Август'
-			WHEN MONTH(sct.TransactionDate) = 9
-			THEN 'Сентябрь'
-			WHEN MONTH(sct.TransactionDate) = 10
-			THEN 'Октябрь'
-			WHEN MONTH(sct.TransactionDate) = 11
-			THEN 'Ноябрь'
-			WHEN MONTH(sct.TransactionDate) = 12
-			THEN 'Декабрь'
-			END AS [SalesMonth]
-		,CASE
-			WHEN MONTH(sct.TransactionDate) in (1, 2, 3)
-			THEN 1
-			WHEN MONTH(sct.TransactionDate) in (4, 5, 6)
-			THEN 2
-			WHEN MONTH(sct.TransactionDate) in (7, 8, 9)
-			THEN 3
-			WHEN MONTH(sct.TransactionDate) in (10, 11, 12)
-			THEN 4
-			END AS [SalesQuater]
+		,datename(month, sct.TransactionDate) AS [SalesMonth]
+		,datepart(quarter, sct.TransactionDate) AS [SalesQuater]
 		,CASE
 			WHEN MONTH(sct.TransactionDate) in (1, 2, 3, 4)
 			THEN 1
