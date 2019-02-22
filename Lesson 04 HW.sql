@@ -1,4 +1,4 @@
-﻿--Сделайте 2 варианта запросов:
+--Сделайте 2 варианта запросов:
 --1) через вложенный запрос
 --2) через WITH (для производных таблиц) 
 --Написать запросы:
@@ -76,6 +76,27 @@ WHERE
 --Написать запросы:
 --1. Выберите сотрудников, которые являются продажниками, и еще не сделали ни одной продажи.
 
+-- Старый запрос:
+
+--SELECT
+--	 p.PersonID
+--	,p.FullName
+--	,p.EmailAddress
+--	,p.PhoneNumber
+--FROM
+--	Application.People p
+--	LEFT OUTER JOIN
+--	(
+--		SELECT 
+--			 SalespersonPersonID
+--			,count(OrderID) AS [OrdersQuantity]
+--		FROM Sales.Orders
+--		GROUP BY SalespersonPersonID
+--	) s ON p.PersonID = s.SalespersonPersonID 
+--WHERE
+--	p.IsSalesperson = 1
+--	AND isnull(s.OrdersQuantity, 0) = 0;
+
 SELECT
 	 p.PersonID
 	,p.FullName
@@ -83,17 +104,21 @@ SELECT
 	,p.PhoneNumber
 FROM
 	Application.People p
-	LEFT OUTER JOIN
+	INNER JOIN
 	(
 		SELECT 
-			 SalespersonPersonID
-			,count(OrderID) AS [OrdersQuantity]
-		FROM Sales.Orders
+			 i.SalespersonPersonID
+			,count(i.InvoiceID) AS [SalesQuantity]
+		FROM Sales.Invoices i
+		WHERE
+			EXISTS
+			(
+				SELECT ct.InvoiceID 
+				FROM Sales.CustomerTransactions ct 
+				WHERE i.InvoiceID = ct.InvoiceID
+			)
 		GROUP BY SalespersonPersonID
 	) s ON p.PersonID = s.SalespersonPersonID 
-WHERE
-	p.IsSalesperson = 1
-	AND isnull(s.OrdersQuantity, 0) = 0;
 
 --2. Выберите товары с минимальной ценой (подзапросом), 2 варианта подзапроса. 
 
@@ -150,28 +175,46 @@ WHERE
 		ORDER BY TransactionAmount DESC
 	);
 
-WITH cte AS
+-- Старый запрос:
+
+--WITH cte AS
+--(
+--	SELECT 
+--		 c.CustomerID
+--		,c.CustomerName
+--		,c.PhoneNumber 
+--	FROM
+--		Sales.Customers c
+--		INNER JOIN
+--		(
+--			SELECT TOP 5
+--				 CustomerID
+--				,TransactionAmount
+--			FROM Sales.CustomerTransactions
+--			ORDER BY TransactionAmount DESC
+--		) tc ON c.CustomerID = tc.CustomerID
+--)
+--SELECT DISTINCT 
+--	 CustomerID
+--	,CustomerName
+--	,PhoneNumber
+--FROM cte;
+
+WITH Top5TranAmount AS
 (
-	SELECT 
-		 c.CustomerID
-		,c.CustomerName
-		,c.PhoneNumber 
-	FROM
-		Sales.Customers c
-		INNER JOIN
-		(
-			SELECT TOP 5
-				 CustomerID
-				,TransactionAmount
-			FROM Sales.CustomerTransactions
-			ORDER BY TransactionAmount DESC
-		) tc ON c.CustomerID = tc.CustomerID
+	SELECT TOP 5
+		 CustomerID
+		,TransactionAmount
+	FROM Sales.CustomerTransactions
+	ORDER BY TransactionAmount DESC
 )
-SELECT DISTINCT 
-	 CustomerID
-	,CustomerName
-	,PhoneNumber
-FROM cte;
+SELECT DISTINCT
+	 c.CustomerID
+	,c.CustomerName
+	,c.PhoneNumber 
+FROM
+	Sales.Customers c 
+	INNER JOIN Top5TranAmount t ON c.CustomerID = t.CustomerID
 
 --4. Выберите города (ид и название), в которые были доставлены товары входящие в тройку самых дорогих товаров, а также Имя сотрудника, который осуществлял упаковку заказов
 
@@ -230,7 +273,7 @@ ORDER BY TotalSumm DESC
 --Приложите план запроса и его анализ, а также ход ваших рассуждений по поводу оптимизации. 
 --Можно двигаться как в сторону улучшения читабельности запроса, так и в сторону упрощения плана\ускорения.
 
-;WITH cte AS
+;WITH InvoiceSum AS
 (
 	SELECT 
 		 InvoiceId
@@ -240,14 +283,14 @@ ORDER BY TotalSumm DESC
 	GROUP BY InvoiceId
 	HAVING SUM(Quantity*UnitPrice) > 27000
 )
-SELECT --*
+SELECT
 	 i.InvoiceID
 	,i.InvoiceDate
 	,p.FullName AS SalesPersonName
 	,cte.TotalSumm AS TotalSummByInvoice
 	,ol.TotalSummForPickedItems
 FROM
-	cte
+	InvoiceSum cte
 	INNER JOIN Sales.Invoices i ON cte.InvoiceID = i.InvoiceID 
 	INNER JOIN 
 	(
@@ -259,6 +302,6 @@ FROM
 		GROUP BY ol.OrderID
 	) ol ON i.OrderID = ol.OrderID
 	INNER JOIN Application.People p ON i.SalespersonPersonID = p.PersonID
-WHERE EXISTS (SELECT InvoiceID FROM cte WHERE cte.InvoiceID = i.InvoiceID)
+WHERE EXISTS (SELECT InvoiceID FROM InvoiceSum WHERE cte.InvoiceID = i.InvoiceID)
 
 --Главным образом хотелось избавиться от Clustered Index Scan по таблице Invoices с возвратом 70к+ строк. Избавился я от этого с помощью cte которая позволила задать фильтрацию по ID счетов. Что превратило Clustered Index Scan в Clustered Index Seek с возвратом сразу нужных 8 счетов. Так же долго думал как оптимизировать кусочек с таблицами Orders и OrderLines, но ничего дельного не придумал.
