@@ -76,27 +76,6 @@ WHERE
 --Написать запросы:
 --1. Выберите сотрудников, которые являются продажниками, и еще не сделали ни одной продажи.
 
--- Старый запрос:
-
---SELECT
---	 p.PersonID
---	,p.FullName
---	,p.EmailAddress
---	,p.PhoneNumber
---FROM
---	Application.People p
---	LEFT OUTER JOIN
---	(
---		SELECT 
---			 SalespersonPersonID
---			,count(OrderID) AS [OrdersQuantity]
---		FROM Sales.Orders
---		GROUP BY SalespersonPersonID
---	) s ON p.PersonID = s.SalespersonPersonID 
---WHERE
---	p.IsSalesperson = 1
---	AND isnull(s.OrdersQuantity, 0) = 0;
-
 SELECT
 	 p.PersonID
 	,p.FullName
@@ -111,7 +90,7 @@ FROM
 			,count(i.InvoiceID) AS [SalesQuantity]
 		FROM Sales.Invoices i
 		WHERE
-			EXISTS
+			NOT EXISTS
 			(
 				SELECT ct.InvoiceID 
 				FROM Sales.CustomerTransactions ct 
@@ -140,13 +119,11 @@ SELECT
 	,si.UnitPrice
 FROM 
 	Warehouse.StockItems si
-	LEFT OUTER JOIN
+	INNER JOIN
 	(
 		SELECT min(UnitPrice) as [MinPrice]
 		FROM Warehouse.StockItems
-	) minPrice ON si.UnitPrice = minPrice.MinPrice
-WHERE
-	minPrice.MinPrice IS NOT NULL;
+	) minPrice ON si.UnitPrice = minPrice.MinPrice;
 
 --3. Выберите всех клиентов у которых было 5 максимальных оплат из [Sales].[CustomerTransactions] представьте 3 способа (в том числе с CTE)
 
