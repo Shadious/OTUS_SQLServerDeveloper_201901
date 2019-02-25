@@ -1,4 +1,4 @@
-﻿-- Группировки и агрегатные функции
+-- Группировки и агрегатные функции
 -- 1. Посчитать среднюю цену товара, общую сумму продажи по месяцам
 -- 2. Отобразить все месяцы, где общая сумма продаж превысила 10 000 
 -- 3. Вывести сумму продаж, дату первой продажи и количество проданного по месяцам, по товарам, продажи которых менее 50 ед в месяц.
@@ -35,6 +35,7 @@ SELECT
 	 si.StockItemID
 	,si.StockItemName
 	,month(ct.TransactionDate) AS [Month]
+	,SUM(ct.TransactionAmount) AS [Sales Sum]
 	,MIN(ct.TransactionDate) AS [First Sale]
 	,COUNT(il.Quantity) AS [Sales Quantity]
 FROM
