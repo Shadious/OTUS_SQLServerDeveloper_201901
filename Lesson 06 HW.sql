@@ -1,4 +1,4 @@
-﻿--Оконные функции
+--Оконные функции
 --1.Сделать расчет суммы продаж нарастающим итогом по месяцам с 2015 года (в рамках одного месяца он будет одинаковый, нарастать будет в течение времени выборки)
 --Вывести Ид продажи, название клиента, дату продажи, сумму продажи, сумму нарастающим итогом
 --Пример 
@@ -56,7 +56,7 @@ SELECT
 	,c.CustomerName
 	,i.InvoiceDate
 	,ct.TransactionAmount
-	,SUM(ct.TransactionAmount) OVER (PARTITION BY i.CustomerID ORDER BY i.InvoiceID) AS [Running Total]
+	,SUM(ct.TransactionAmount) OVER (PARTITION BY year(ct.TransactionDate), month(ct.TransactionDate), i.CustomerID) AS [Running Total]
 FROM
 	Sales.Invoices i
 	INNER JOIN Sales.CustomerTransactions ct ON i.InvoiceID = ct.InvoiceID
@@ -82,7 +82,9 @@ SELECT
 			INNER JOIN Sales.Customers c1 ON i1.CustomerID = c1.CustomerID
 		WHERE 
 			c1.CustomerID = c.CustomerID
-			AND i1.InvoiceID <= i.InvoiceID
+			--AND i1.InvoiceID <= i.InvoiceID
+			AND month(ct1.TransactionDate) = month(ct.TransactionDate)
+			AND year(ct1.TransactionDate) = year(ct.TransactionDate)
 			AND year(ct1.TransactionDate) >= 2015
 		GROUP BY c1.CustomerID
 	 ) AS [Running Total]
@@ -99,10 +101,10 @@ GO
 -- Запрос с windows function выполняется быстрее:
 --(31440 rows affected)
 -- SQL Server Execution Times:
---   CPU time = 843 ms,  elapsed time = 1419 ms.
+--   CPU time = 454 ms,  elapsed time = 933 ms.
 --(31440 rows affected)
 -- SQL Server Execution Times:
---   CPU time = 81016 ms,  elapsed time = 82595 ms.
+--   CPU time = 90875 ms,  elapsed time = 91356 ms.
 
 --2. Вывести список 2х самых популярного продуктов (по кол-ву проданных) в каждом месяце за 2016й год (по 2 самых популярных продукта в каждом месяце)
 
@@ -243,9 +245,10 @@ FROM Warehouse.StockItems si;
 
 -- сформируйте 30 групп товаров по полю вес товара на 1 шт
 
-SELECT DISTINCT TOP 30
-	 si.TypicalWeightPerUnit
-	,dense_rank() OVER (ORDER BY si.TypicalWeightPerUnit)
+SELECT 
+	 si.StockItemName
+	,si.TypicalWeightPerUnit
+	,ntile(30) OVER (ORDER BY si.TypicalWeightPerUnit)
 FROM Warehouse.StockItems si;
 
 -- 4. По каждому сотруднику выведете последнего клиента, которому сотрудник что-то продал
@@ -260,7 +263,7 @@ WITH cte AS
 	SELECT DISTINCT
 		 o.SalespersonPersonID
 		,p.FullName
-		,max(ct.InvoiceID) OVER (PARTITION BY o.SalespersonPersonID) AS [InvoiceID]
+		,max(ct.CustomerTransactionID) OVER (PARTITION BY o.SalespersonPersonID) AS [CustomerTransactionID]
 	FROM
 		Application.People p
 		INNER JOIN Sales.Orders o ON p.PersonID = o.SalespersonPersonID
@@ -276,9 +279,9 @@ SELECT
 	,ct.TransactionAmount
 FROM 
 	cte cte
-	INNER JOIN Sales.Invoices i ON cte.InvoiceID = i.InvoiceID
+	INNER JOIN Sales.CustomerTransactions ct ON cte.CustomerTransactionID = ct.CustomerTransactionID
+	INNER JOIN Sales.Invoices i ON ct.InvoiceID = i.InvoiceID
 	INNER JOIN Sales.Customers c ON i.CustomerID = c.CustomerID
-	INNER JOIN Sales.CustomerTransactions ct ON cte.InvoiceID = ct.InvoiceID
 ORDER BY cte.SalespersonPersonID;
 
 GO
