@@ -1,4 +1,4 @@
-﻿-- Pivot и Cross Apply
+-- Pivot и Cross Apply
 -- 1. Требуется написать запрос, который в результате своего выполнения формирует таблицу следующего вида:
 -- Название клиента/МесяцГод/Количество покупок
    
@@ -32,48 +32,54 @@
 -- дата должна иметь формат dd.mm.yyyy например 25.12.2019
 
 SELECT 
-	 REPLACE(REPLACE([CustomerName], 'Tailspin Toys (', ''), ')', '') AS [CustomerName]
-	,[OrderDate]
-	,[OrdersQuantity]
-FROM 
-	[Sales].[Customers] c
-	CROSS APPLY
-	(
-		SELECT 
-			 CAST(DAY(o.[OrderDate]) AS nvarchar(2)) + '.' + CAST(MONTH(o.[OrderDate]) AS nvarchar(2)) + '.' + CAST(YEAR(o.[OrderDate]) AS nvarchar(4)) AS [OrderDate]
-			,YEAR(o.[OrderDate]) AS [OrderYear]
-			,MONTH(o.[OrderDate]) AS [OrderMonth]
-			,DAY(o.[OrderDate]) AS [OrderDay]
-			,COUNT(o.[OrderID]) AS [OrdersQuantity]
-		FROM 
-			[Sales].[Orders] o
-			INNER JOIN [Sales].[Invoices] i ON o.[OrderID] = i.[OrderID]
-		WHERE
-			EXISTS
-			(
-				SELECT ct.[CustomerTransactionID]
-				FROM [Sales].[CustomerTransactions] ct
-				WHERE 
-					ct.[InvoiceID] = i.[InvoiceID]
-			)
-			AND c.[CustomerID] = o.[CustomerID]
-		GROUP BY 
-			 CAST(DAY(o.[OrderDate]) AS nvarchar(2)) + '.' + CAST(MONTH(o.[OrderDate]) AS nvarchar(2)) + '.' + CAST(YEAR(o.[OrderDate]) AS nvarchar(4))
-			,YEAR(o.[OrderDate])
-			,MONTH(o.[OrderDate])
-			,DAY(o.[OrderDate])
-	) oc
-WHERE
-	c.[CustomerID] BETWEEN 2 AND 6
-ORDER BY 
-	 [CustomerName] ASC
-	,[OrderYear] ASC
-	,[OrderDay] ASC;
+	 [OrderDate] AS 'Invoice Date'
+	,[2] AS 'Sylvanite, MT'
+	,[3] AS 'Peeples Valley, AZ'
+	,[4] AS 'Medicine Lodge, KS'
+	,[5] AS 'Gasport, NY'
+	,[6] AS 'Jessie, ND'
+FROM
+(
+	SELECT 
+		 [CustomerID]--REPLACE(REPLACE([CustomerName], 'Tailspin Toys (', ''), ')', '') AS [CustomerName]
+		,[OrderDate]
+		,[OrderID]
+	FROM 
+		[Sales].[Customers] c
+		CROSS APPLY
+		(
+			SELECT 
+				 FORMAT(o.[OrderDate], 'd', 'de-de') AS [OrderDate]
+				,o.[OrderID]
+			FROM 
+				[Sales].[Orders] o
+				INNER JOIN [Sales].[Invoices] i ON o.[OrderID] = i.[OrderID]
+			WHERE
+				EXISTS
+				(
+					SELECT ct.[CustomerTransactionID]
+					FROM [Sales].[CustomerTransactions] ct
+					WHERE 
+						ct.[InvoiceID] = i.[InvoiceID]
+				)
+				AND c.[CustomerID] = o.[CustomerID]
+		) oc
+	WHERE
+		c.[CustomerID] BETWEEN 2 AND 6
+) AS sel
+PIVOT
+(
+	count([OrderID])
+	FOR [CustomerID] IN ([2], [3], [4], [5], [6])
+) AS selpvt
 
 -- 2. Для всех клиентов с именем, в котором есть Tailspin Toys
 -- вывести все адреса, которые есть в таблице в одной колонке
 
-SELECT DISTINCT [Address]
+-- Вариант с UNION:
+SELECT DISTINCT 
+	 cunpvt.[CustomerName]
+	,[Address]
 FROM 
 	[Sales].[Customers] c
 	CROSS APPLY
@@ -103,6 +109,28 @@ FROM
 WHERE
 	c.[CustomerName] LIKE 'Tailspin Toys%'
 ORDER BY [Address] ASC;
+
+-- Вариант с UNPIVOT:
+SELECT 
+	 CustomerName
+	,cunpvt.[Address]
+FROM
+(
+	SELECT
+		 [CustomerName]
+		,[DeliveryAddressLine1]
+		,[DeliveryAddressLine2]
+		,[PostalAddressLine1]
+		,[PostalAddressLine2]
+	FROM [Sales].[Customers] c
+	WHERE c.[CustomerName] LIKE 'Tailspin Toys%'
+) c
+UNPIVOT
+(
+	[Address] 
+	FOR [AddressType] 
+	IN ([DeliveryAddressLine1], [DeliveryAddressLine2], [PostalAddressLine1], [PostalAddressLine2])
+) cunpvt
 
 -- 3. В таблице стран есть поля с кодом страны цифровым и буквенным
 -- сделайте выборку ИД страны, название, код - чтобы в поле был либо цифровой либо буквенный код
