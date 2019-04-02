@@ -31,25 +31,19 @@
 -- например исходное Tailspin Toys (Gasport, NY) - вы выводите в имени только Gasport,NY
 -- дата должна иметь формат dd.mm.yyyy например 25.12.2019
 
-SELECT 
-	 [OrderDate] AS 'Invoice Date'
-	,[2] AS 'Sylvanite, MT'
-	,[3] AS 'Peeples Valley, AZ'
-	,[4] AS 'Medicine Lodge, KS'
-	,[5] AS 'Gasport, NY'
-	,[6] AS 'Jessie, ND'
+SELECT selpvt.*
 FROM
 (
 	SELECT 
-		 [CustomerID]--REPLACE(REPLACE([CustomerName], 'Tailspin Toys (', ''), ')', '') AS [CustomerName]
-		,[OrderDate]
+		 [OrderDate]
+		,[CustomerName] = replace(replace([CustomerName], left([CustomerName], charindex('(', [CustomerName], 0)), ''), ')', '')
 		,[OrderID]
 	FROM 
 		[Sales].[Customers] c
 		CROSS APPLY
 		(
 			SELECT 
-				 FORMAT(o.[OrderDate], 'd', 'de-de') AS [OrderDate]
+				 [OrderDate] = FORMAT(o.[OrderDate], 'd', 'de-de')
 				,o.[OrderID]
 			FROM 
 				[Sales].[Orders] o
@@ -60,7 +54,7 @@ FROM
 					SELECT ct.[CustomerTransactionID]
 					FROM [Sales].[CustomerTransactions] ct
 					WHERE 
-						ct.[InvoiceID] = i.[InvoiceID]
+					ct.[InvoiceID] = i.[InvoiceID]
 				)
 				AND c.[CustomerID] = o.[CustomerID]
 		) oc
@@ -70,7 +64,15 @@ FROM
 PIVOT
 (
 	count([OrderID])
-	FOR [CustomerID] IN ([2], [3], [4], [5], [6])
+	FOR [CustomerName] 
+	IN 
+	(
+		 [Sylvanite, MT]
+		,[Peeples Valley, AZ]
+		,[Medicine Lodge, KS]
+		,[Gasport, NY]
+		,[Jessie, ND]
+	)
 ) AS selpvt
 
 -- 2. Для всех клиентов с именем, в котором есть Tailspin Toys
@@ -78,7 +80,7 @@ PIVOT
 
 -- Вариант с UNION:
 SELECT DISTINCT 
-	 cunpvt.[CustomerName]
+	 c.[CustomerName]
 	,[Address]
 FROM 
 	[Sales].[Customers] c
