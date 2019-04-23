@@ -1,4 +1,4 @@
-﻿--Пишем динамические запросы
+--Пишем динамические запросы
 --1. Загрузить данные из файла StockItems.xml в таблицу StockItems.
 --Существующие записи в таблице обновить, отсутствующие добавить (искать по StockItemName).
 --Файл StockItems.xml в личном кабинете.
@@ -173,9 +173,11 @@ FROM [Warehouse].[StockItems];
 --Запрос написать через функции работы с JSON.
 --Тэги искать в поле CustomFields, а не в Tags.
 
-SELECT * 
-FROM [Warehouse].[StockItems] 
-WHERE JSON_QUERY(CustomFields, '$.Tags') like '%Vintage%';
+SELECT si.*
+FROM 
+	[Warehouse].[StockItems] si
+	CROSS APPLY OPENJSON (CustomFields, '$.Tags')
+WHERE Value = 'Vintage';
 
 --5. Пишем динамический PIVOT. 
 --По заданию из 8го занятия про CROSS APPLY и PIVOT 
